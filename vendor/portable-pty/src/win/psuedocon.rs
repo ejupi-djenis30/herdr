@@ -177,7 +177,7 @@ const CONPTY_FILES: &[(&str, &str)] = &[
 ];
 
 fn app_local_conpty_path() -> Result<Option<PathBuf>, String> {
-    if std::env::consts::ARCH != "x86_64" {
+    if !matches!(std::env::consts::ARCH, "x86_64" | "aarch64") {
         return Ok(None);
     }
     let executable = std::env::current_exe()
