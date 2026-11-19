@@ -7,12 +7,20 @@ on:
     paths:
       - ".github/workflows/windows-arm64.yml"
       - "scripts/windows_arm64_installer_test.ps1"
+      - "scripts/windows_conpty_enhanced_input_probe.ps1"
+      - "scripts/package_windows_conpty.*"
+      - "packaging/windows/**"
+      - "vendor/portable-pty/**"
       - "distribution/install.ps1"
   push:
     branches: [master]
     paths:
       - ".github/workflows/windows-arm64.yml"
       - "scripts/windows_arm64_installer_test.ps1"
+      - "scripts/windows_conpty_enhanced_input_probe.ps1"
+      - "scripts/package_windows_conpty.*"
+      - "packaging/windows/**"
+      - "vendor/portable-pty/**"
       - "distribution/install.ps1"
 
 permissions:
@@ -81,6 +89,20 @@ jobs:
           .\scripts\windows_smoke_conpty_path.ps1 `
             -ExePath target\aarch64-pc-windows-msvc\release\herdr.exe `
             -Session "ci-native-arm64-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+
+      - name: Verify experimental app-local ARM64 ConPTY
+        shell: pwsh
+        run: |
+          .\scripts\package_windows_conpty.ps1 `
+            -Architecture aarch64 `
+            -HerdrExe target\aarch64-pc-windows-msvc\release\herdr.exe `
+            -PackagePath "$env:RUNNER_TEMP\conpty.nupkg" `
+            -StageDir target\arm64-conpty-stage `
+            -OutputPath "$env:RUNNER_TEMP\herdr-windows-arm64-evaluation.zip"
+          .\scripts\windows_conpty_enhanced_input_probe.ps1 `
+            -ExePath target\arm64-conpty-stage\herdr.exe `
+            -ExpectedConsoleHostPath target\arm64-conpty-stage\conpty\arm64\OpenConsole.exe `
+            -Session "ci-bundled-arm64-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
 
       - name: Record build details
         shell: pwsh
