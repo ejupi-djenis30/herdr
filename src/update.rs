@@ -527,8 +527,9 @@ fn first_windows_stable_is_pending(
     manifest: &UpdateManifest,
     is_windows: bool,
     installed_is_preview: bool,
+    arch: &str,
 ) -> bool {
-    is_windows && installed_is_preview && !manifest.assets.contains_key("windows-x86_64")
+    is_windows && installed_is_preview && !manifest.assets.contains_key(&format!("windows-{arch}"))
 }
 
 fn release_info_from_manifests(
@@ -564,7 +565,12 @@ fn release_info_from_manifests(
         }
     }
 
-    if first_windows_stable_is_pending(stable, cfg!(windows), installed_is_preview) {
+    if first_windows_stable_is_pending(
+        stable,
+        cfg!(windows),
+        installed_is_preview,
+        platform_target().1,
+    ) {
         tracing::info!("waiting for the first stable Windows release");
         return Ok(None);
     }
@@ -4187,24 +4193,54 @@ mod tests {
         assert!(first_windows_stable_is_pending(
             &without_windows,
             true,
-            true
+            true,
+            "x86_64"
         ));
         assert!(!first_windows_stable_is_pending(
             &without_windows,
             true,
-            false
+            false,
+            "x86_64"
         ));
         assert!(!first_windows_stable_is_pending(
             &without_windows,
             false,
-            true
+            true,
+            "x86_64"
         ));
 
         let with_windows: UpdateManifest = serde_json::from_str(
             r#"{"version":"9.9.9","notes":"notes","assets":{"windows-x86_64":"https://example.com/herdr-windows-x86_64.zip"},"announcement":null}"#,
         )
         .unwrap();
-        assert!(!first_windows_stable_is_pending(&with_windows, true, true));
+        assert!(!first_windows_stable_is_pending(
+            &with_windows,
+            true,
+            true,
+            "x86_64"
+        ));
+        assert!(first_windows_stable_is_pending(
+            &with_windows,
+            true,
+            true,
+            "aarch64"
+        ));
+        let with_arm64: UpdateManifest = serde_json::from_str(
+            r#"{"version":"9.9.9","notes":"notes","assets":{"windows-aarch64":"https://example.com/herdr-windows-aarch64.zip"},"announcement":null}"#,
+        )
+        .unwrap();
+        assert!(!first_windows_stable_is_pending(
+            &with_arm64,
+            true,
+            true,
+            "aarch64"
+        ));
+        assert!(first_windows_stable_is_pending(
+            &with_arm64,
+            true,
+            true,
+            "x86_64"
+        ));
     }
 
     #[test]
