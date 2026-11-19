@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METADATA = PROJECT_ROOT / "packaging" / "windows" / "conpty.json"
 MARKER_PATH = PurePosixPath("conpty/herdr-conpty.json")
 DOWNLOAD_TIMEOUT_SECONDS = 60
+PE_MACHINES = {"x86_64": 0x8664, "aarch64": 0xAA64}
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -234,6 +235,13 @@ def acquire_package(package: dict[str, Any], package_path: Path) -> None:
         )
 
 
+def validate_herdr_executable(data: bytes, name: str, architecture: str) -> None:
+    actual = pe_machine(data)
+    if actual != PE_MACHINES[architecture]:
+        raise ValueError(f"PE machine mismatch for {name}: expected {architecture}, got 0x{actual:04x}")
+    validate_static_msvc_runtime(data, name)
+
+
 def marker_data(metadata: dict[str, Any], architecture: str) -> bytes:
     bundle = metadata["bundles"][architecture]
     marker = {
@@ -263,7 +271,7 @@ def stage_bundle(
     if not herdr_exe.is_file():
         raise ValueError(f"Herdr executable does not exist: {herdr_exe}")
 
-    validate_static_msvc_runtime(herdr_exe.read_bytes(), herdr_exe.name)
+    validate_herdr_executable(herdr_exe.read_bytes(), herdr_exe.name, architecture)
 
     acquire_package(metadata["package"], package_path)
     bundle = metadata["bundles"][architecture]
@@ -396,9 +404,13 @@ def build_local_bundle(metadata_path: Path) -> None:
     target = Path(os.environ.get("CARGO_TARGET_DIR", "target"))
     if not target.is_absolute():
         target = PROJECT_ROOT / target
+    machine = pe_machine(executable.read_bytes())
+    architecture = next((name for name, value in PE_MACHINES.items() if value == machine), None)
+    if architecture is None:
+        raise ValueError(f"unsupported Herdr PE machine: 0x{machine:04x}")
     install_local_bundle(
         metadata_path,
-        "x86_64",
+        architecture,
         target / "conpty" / "Microsoft.Windows.Console.ConPTY.nupkg",
         executable,
     )
@@ -428,7 +440,7 @@ def validate_stage(metadata_path: Path, architecture: str, stage_dir: Path) -> N
     # The executable is not hash-pinned (it changes every build), so re-check
     # it here to cover a direct archive of an existing stage or a swap after
     # staging.
-    validate_static_msvc_runtime((stage_dir / "herdr.exe").read_bytes(), "herdr.exe")
+    validate_herdr_executable((stage_dir / "herdr.exe").read_bytes(), "herdr.exe", architecture)
     for item in metadata["bundles"][architecture]["files"]:
         path = stage_dir / PurePosixPath(item["destination"])
         actual_hash = sha256_file(path)
@@ -458,13 +470,13 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     stage = subparsers.add_parser("stage")
-    stage.add_argument("--architecture", choices=("x86_64",), default="x86_64")
+    stage.add_argument("--architecture", choices=("x86_64", "aarch64"), default="x86_64")
     stage.add_argument("--package", type=Path, required=True)
     stage.add_argument("--herdr-exe", type=Path, required=True)
     stage.add_argument("--output-dir", type=Path, required=True)
 
     archive = subparsers.add_parser("archive")
-    archive.add_argument("--architecture", choices=("x86_64",), default="x86_64")
+    archive.add_argument("--architecture", choices=("x86_64", "aarch64"), default="x86_64")
     archive.add_argument("--stage-dir", type=Path, required=True)
     archive.add_argument("--output", type=Path, required=True)
     subparsers.add_parser("build-local")

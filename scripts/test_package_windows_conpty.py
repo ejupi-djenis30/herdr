@@ -34,10 +34,12 @@ class WindowsConptyPackageTests(unittest.TestCase):
         cargo.wait.return_value = 0
         with (
             mock.patch.object(package.subprocess, "Popen", return_value=cargo),
+            mock.patch.object(Path, "read_bytes", return_value=self._pe(0xAA64, b"")),
             mock.patch.object(package, "install_local_bundle") as install,
         ):
             package.build_local_bundle(package.DEFAULT_METADATA)
         self.assertEqual(install.call_args.args[-1], executable)
+        self.assertEqual(install.call_args.args[1], "aarch64")
 
     def test_pinned_metadata_and_notices_are_consistent(self) -> None:
         metadata = package.load_metadata(package.DEFAULT_METADATA)
@@ -57,14 +59,30 @@ class WindowsConptyPackageTests(unittest.TestCase):
         installer = (package.PROJECT_ROOT / "distribution/install.ps1").read_text(
             encoding="utf-8"
         )
-        for item in metadata["bundles"]["x86_64"]["files"]:
-            self.assertIn(item["sha256"], loader)
-            self.assertNotIn(item["sha256"], installer)
+        for architecture in ("x86_64", "aarch64"):
+            for item in metadata["bundles"][architecture]["files"]:
+                self.assertIn(item["sha256"], loader)
+                self.assertNotIn(item["sha256"], installer)
         self.assertIn('Get-Content -LiteralPath $markerPath -Raw', installer)
         self.assertIn('$filesProperty.Value.PSObject.Properties[$relative]', installer)
         for notice in metadata["notices"]:
             source = package.PROJECT_ROOT / notice["source"]
             self.assertEqual(package.sha256_file(source), notice["sha256"])
+
+    def test_native_arm64_metadata_and_executable_architecture(self) -> None:
+        metadata = package.load_metadata(package.DEFAULT_METADATA)
+        bundle = metadata["bundles"]["aarch64"]
+        self.assertEqual(bundle["target_triple"], "aarch64-pc-windows-msvc")
+        self.assertEqual(bundle["files"][0]["source"], "runtimes/win-arm64/native/conpty.dll")
+        self.assertEqual(bundle["files"][0]["pe_machine"], "0xaa64")
+        arm64 = self._pe_with_imports(0xAA64, ["KERNEL32.dll"])
+        x64 = self._pe_with_imports(0x8664, ["KERNEL32.dll"])
+        package.validate_herdr_executable(arm64, "herdr.exe", "aarch64")
+        package.validate_herdr_executable(x64, "herdr.exe", "x86_64")
+        with self.assertRaisesRegex(ValueError, "PE machine mismatch"):
+            package.validate_herdr_executable(x64, "herdr.exe", "aarch64")
+        with self.assertRaisesRegex(ValueError, "PE machine mismatch"):
+            package.validate_herdr_executable(arm64, "herdr.exe", "x86_64")
 
     def test_powershell_wrapper_verifies_package_and_signatures(self) -> None:
         wrapper = (package.PROJECT_ROOT / "scripts/package_windows_conpty.ps1").read_text(

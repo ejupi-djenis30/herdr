@@ -88,7 +88,7 @@ index 133eab52..d4f111bb 100644
  use winapi::um::processthreadsapi::*;
  use winapi::um::winbase::{
      CREATE_UNICODE_ENVIRONMENT, EXTENDED_STARTUPINFO_PRESENT, STARTF_USESTDHANDLES, STARTUPINFOEXW,
-@@ -30,26 +37,249 @@ pub const PSEUDOCONSOLE_WIN32_INPUT_MODE: DWORD = 0x4;
+@@ -30,26 +37,255 @@ pub const PSEUDOCONSOLE_WIN32_INPUT_MODE: DWORD = 0x4;
  #[allow(dead_code)]
  pub const PSEUDOCONSOLE_PASSTHROUGH_MODE: DWORD = 0x8;
 
@@ -225,9 +225,15 @@ index 133eab52..d4f111bb 100644
 +
 +const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
 +const CONPTY_FILES: &[(&str, &str)] = &[
++    #[cfg(not(target_arch = "aarch64"))]
 +    (
 +        "conpty.dll",
 +        "39fba2713e2495117b1591ae8c32a3b904bea7aa66069cf7815e2844c76d75d8",
++    ),
++    #[cfg(target_arch = "aarch64")]
++    (
++        "conpty.dll",
++        "db3d173640b172bafd42d5b541b638a9aeec1c7d0e40dd636bf02822a32c912c",
 +    ),
 +    (
 +        "x64/OpenConsole.exe",

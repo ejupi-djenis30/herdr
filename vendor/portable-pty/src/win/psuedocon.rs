@@ -156,9 +156,15 @@ fn load_conpty() -> ConPtyFuncs {
 
 const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
 const CONPTY_FILES: &[(&str, &str)] = &[
+    #[cfg(not(target_arch = "aarch64"))]
     (
         "conpty.dll",
         "39fba2713e2495117b1591ae8c32a3b904bea7aa66069cf7815e2844c76d75d8",
+    ),
+    #[cfg(target_arch = "aarch64")]
+    (
+        "conpty.dll",
+        "db3d173640b172bafd42d5b541b638a9aeec1c7d0e40dd636bf02822a32c912c",
     ),
     (
         "x64/OpenConsole.exe",

@@ -30,7 +30,7 @@ local files:
 reason: `portable-pty` intentionally probes a bare `conpty.dll` through the DLL
 search path. Herdr must never load another application's DLL from `PATH`. The
 Windows package ships a pinned Microsoft ConPTY runtime under `conpty/`; Herdr
-verifies the exact DLL and x64/ARM64 host hashes, rejects reparse points and
+verifies the architecture-specific DLL and x64/ARM64 host hashes, rejects reparse points and
 unexpected files, then loads the DLL by absolute path with its dependency search
 limited to that directory and System32. Installations without a bundle continue
 using the ConPTY exports from the already loaded `kernel32.dll`. Set
