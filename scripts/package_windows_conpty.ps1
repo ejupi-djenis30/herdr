@@ -1,7 +1,4 @@
 param(
-    [ValidateSet("x86_64", "aarch64")]
-    [string]$Architecture = "x86_64",
-
     [Parameter(Mandatory = $true)]
     [string]$HerdrExe,
 
@@ -12,7 +9,10 @@ param(
     [string]$StageDir,
 
     [Parameter(Mandatory = $true)]
-    [string]$OutputPath
+    [string]$OutputPath,
+
+    [ValidateSet("x86_64", "aarch64")]
+    [string]$Architecture = "x86_64"
 )
 
 Set-StrictMode -Version Latest
